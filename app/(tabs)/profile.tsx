@@ -1,10 +1,11 @@
-import { ScrollView, Text, View, Pressable, Alert, Switch } from "react-native";
+import { ScrollView, Text, View, Pressable, Switch, Platform } from "react-native";
 import { useEffect, useState } from "react";
 import * as Haptics from "expo-haptics";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { UserStatistics, UserPreferences } from "@/lib/types";
 import { calculateStatistics, getPreferences, savePreferences, clearAllData } from "@/lib/storage";
+import { Alert } from "react-native";
 
 export default function ProfileScreen() {
   const colors = useColors();
@@ -41,7 +42,9 @@ export default function ProfileScreen() {
     const updated = { ...preferences, [key]: value };
     setPreferences(updated);
     await savePreferences(updated);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
   };
 
   const handleClearData = () => {
@@ -64,17 +67,19 @@ export default function ProfileScreen() {
   };
 
   return (
-    <ScreenContainer className="p-6">
+    <ScreenContainer className="p-4 md:p-8 lg:p-12">
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
-        <View className="gap-6">
+        <View className="gap-6 max-w-6xl mx-auto w-full">
           {/* رأس الصفحة */}
           <View className="gap-2">
-            <Text className="text-3xl font-bold text-foreground">👤 الملف الشخصي</Text>
-            <Text className="text-base text-muted">إدارة حسابك والإعدادات</Text>
+            <Text className="text-4xl md:text-5xl font-bold text-foreground">👤 الملف الشخصي</Text>
+            <Text className="text-base md:text-lg text-muted">
+              إدارة حسابك والإعدادات
+            </Text>
           </View>
 
           {/* معلومات المستخدم */}
-          <View className="bg-surface rounded-2xl p-6 gap-4 border border-border">
+          <View className="bg-surface rounded-2xl p-6 md:p-8 gap-4 border border-border">
             <View className="items-center gap-3">
               <View
                 className="w-16 h-16 rounded-full items-center justify-center"
@@ -91,30 +96,30 @@ export default function ProfileScreen() {
 
           {/* الإحصائيات الشاملة */}
           <View className="gap-3">
-            <Text className="text-lg font-bold text-foreground">الإحصائيات الشاملة</Text>
+            <Text className="text-2xl font-bold text-foreground">الإحصائيات الشاملة</Text>
 
-            <View className="grid grid-cols-2 gap-3">
-              <View className="bg-surface rounded-xl p-4 gap-2 border border-border">
+            <View className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              <View className="bg-surface rounded-xl p-4 md:p-6 gap-2 border border-border">
                 <Text className="text-xs text-muted">إجمالي الأنشطة</Text>
-                <Text className="text-2xl font-bold text-foreground">
+                <Text className="text-2xl md:text-3xl font-bold text-foreground">
                   {statistics?.activitiesCount || 0}
                 </Text>
               </View>
-              <View className="bg-surface rounded-xl p-4 gap-2 border border-border">
+              <View className="bg-surface rounded-xl p-4 md:p-6 gap-2 border border-border">
                 <Text className="text-xs text-muted">التحديات المكتملة</Text>
-                <Text className="text-2xl font-bold text-foreground">
+                <Text className="text-2xl md:text-3xl font-bold text-foreground">
                   {statistics?.challengesCompleted || 0}
                 </Text>
               </View>
-              <View className="bg-surface rounded-xl p-4 gap-2 border border-border">
+              <View className="bg-surface rounded-xl p-4 md:p-6 gap-2 border border-border">
                 <Text className="text-xs text-muted">الشارات المفتوحة</Text>
-                <Text className="text-2xl font-bold text-foreground">
+                <Text className="text-2xl md:text-3xl font-bold text-foreground">
                   {statistics?.badgesUnlocked || 0}
                 </Text>
               </View>
-              <View className="bg-surface rounded-xl p-4 gap-2 border border-border">
+              <View className="bg-surface rounded-xl p-4 md:p-6 gap-2 border border-border">
                 <Text className="text-xs text-muted">أفضل سلسلة</Text>
-                <Text className="text-2xl font-bold text-foreground">
+                <Text className="text-2xl md:text-3xl font-bold text-foreground">
                   {statistics?.bestStreak || 0} يوم
                 </Text>
               </View>
@@ -123,10 +128,10 @@ export default function ProfileScreen() {
 
           {/* الإعدادات */}
           <View className="gap-3">
-            <Text className="text-lg font-bold text-foreground">الإعدادات</Text>
+            <Text className="text-2xl font-bold text-foreground">الإعدادات</Text>
 
             {/* الإشعارات */}
-            <View className="bg-surface rounded-xl p-4 flex-row justify-between items-center border border-border">
+            <View className="bg-surface rounded-xl p-4 md:p-6 flex-row justify-between items-center border border-border">
               <View className="gap-1">
                 <Text className="font-semibold text-foreground">الإشعارات</Text>
                 <Text className="text-xs text-muted">تنبيهات التحديات والنصائح</Text>
@@ -139,7 +144,7 @@ export default function ProfileScreen() {
             </View>
 
             {/* الوحدات */}
-            <View className="bg-surface rounded-xl p-4 gap-3 border border-border">
+            <View className="bg-surface rounded-xl p-4 md:p-6 gap-3 border border-border">
               <Text className="font-semibold text-foreground">الوحدات</Text>
               <View className="flex-row gap-2">
                 <Pressable
@@ -174,7 +179,7 @@ export default function ProfileScreen() {
             </View>
 
             {/* اللغة */}
-            <View className="bg-surface rounded-xl p-4 gap-3 border border-border">
+            <View className="bg-surface rounded-xl p-4 md:p-6 gap-3 border border-border">
               <Text className="font-semibold text-foreground">اللغة</Text>
               <View className="flex-row gap-2">
                 <Pressable
@@ -218,16 +223,19 @@ export default function ProfileScreen() {
                   opacity: pressed ? 0.7 : 1,
                 },
               ]}
-              className="bg-error/10 rounded-xl p-4 items-center border border-error/20"
+              className="bg-error/10 rounded-xl p-4 md:p-6 items-center border border-error/20"
             >
               <Text className="text-sm font-bold text-error">حذف جميع البيانات</Text>
             </Pressable>
           </View>
 
           {/* معلومات التطبيق */}
-          <View className="bg-surface rounded-xl p-4 gap-2 border border-border items-center">
+          <View className="bg-surface rounded-xl p-4 md:p-6 gap-2 border border-border items-center">
             <Text className="text-sm text-muted">EcoSphere v1.0.0</Text>
             <Text className="text-xs text-muted">تطبيق إدارة الاستدامة الشخصية</Text>
+            <Text className="text-xs text-muted mt-2">
+              © 2026 جميع الحقوق محفوظة | نحو مستقبل أخضر 🌱
+            </Text>
           </View>
         </View>
       </ScrollView>

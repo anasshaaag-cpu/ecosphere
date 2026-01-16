@@ -1,17 +1,19 @@
-import { ScrollView, Text, View, TouchableOpacity, Pressable } from "react-native";
-import { useEffect, useState } from "react";
+import { ScrollView, Text, View, Pressable, Platform } from "react-native";
 import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import * as Haptics from "expo-haptics";
-
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { Activity, UserStatistics } from "@/lib/types";
-import { getActivities, getStatistics, calculateStatistics } from "@/lib/storage";
-import { cn } from "@/lib/utils";
+import { getActivities, calculateStatistics } from "@/lib/storage";
 
-/**
- * الشاشة الرئيسية - عرض البصمة الكربونية والأنشطة السريعة
- */
+const ACTIVITY_CATEGORIES = [
+  { id: "transport", label: "النقل", icon: "🚗", color: "#3B82F6" },
+  { id: "energy", label: "الطاقة", icon: "⚡", color: "#FBBF24" },
+  { id: "food", label: "الغذاء", icon: "🍽️", color: "#EC4899" },
+  { id: "waste", label: "النفايات", icon: "♻️", color: "#8B5CF6" },
+];
+
 export default function HomeScreen() {
   const colors = useColors();
   const router = useRouter();
@@ -19,7 +21,6 @@ export default function HomeScreen() {
   const [todayActivities, setTodayActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // تحميل البيانات عند فتح الشاشة
   useEffect(() => {
     loadData();
   }, []);
@@ -30,113 +31,137 @@ export default function HomeScreen() {
       const stats = await calculateStatistics();
       setStatistics(stats);
 
-      // الحصول على أنشطة اليوم
       const activities = await getActivities();
       const today = new Date();
-      const todayStr = today.toISOString().split("T")[0];
-      const todayActs = activities.filter(
-        (a) => new Date(a.date).toISOString().split("T")[0] === todayStr
-      );
-      setTodayActivities(todayActs);
+      today.setHours(0, 0, 0, 0);
+      const todayActivities = activities.filter((a) => {
+        const actDate = new Date(a.date);
+        actDate.setHours(0, 0, 0, 0);
+        return actDate.getTime() === today.getTime();
+      });
+      setTodayActivities(todayActivities);
     } catch (error) {
-      console.error("Error loading data:", error);
+      console.error("Error loading home data:", error);
     } finally {
       setLoading(false);
     }
   };
 
   const handleActivityPress = (category: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
     router.push({
       pathname: "/activity-logger",
       params: { category },
     });
   };
 
-  const handleChallengePress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push("/challenges");
-  };
-
-  const activityCategories = [
-    { id: "transport", label: "النقل", icon: "🚗", color: "#3B82F6" },
-    { id: "energy", label: "الطاقة", icon: "⚡", color: "#FBBF24" },
-    { id: "food", label: "الغذاء", icon: "🍽️", color: "#EC4899" },
-    { id: "waste", label: "النفايات", icon: "♻️", color: "#8B5CF6" },
-  ];
-
-  const dailyTip = {
-    title: "نصيحة اليوم",
-    description: "استخدم المشي أو الدراجة بدلاً من السيارة لتقليل البصمة الكربونية بنسبة 90%",
-    savings: 2.5,
-  };
+  const todayFootprint = todayActivities.reduce((sum, a) => sum + a.carbonFootprint, 0);
 
   return (
-    <ScreenContainer className="p-0">
-      <ScrollView
-        contentContainerStyle={{ flexGrow: 1 }}
-        showsVerticalScrollIndicator={false}
-        className="flex-1"
-      >
-        {/* رأس الصفحة - البصمة الكربونية */}
-        <View className="bg-gradient-to-b from-primary/10 to-transparent px-6 pt-6 pb-8">
-          <View className="gap-4">
+    <ScreenContainer className="p-4 md:p-8 lg:p-12">
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
+        <View className="gap-6 max-w-6xl mx-auto w-full">
+          {/* رأس الصفحة */}
+          <View className="gap-2">
+            <Text className="text-4xl md:text-5xl font-bold text-foreground">
+              🌍 مرحباً بك في EcoSphere
+            </Text>
+            <Text className="text-base md:text-lg text-muted">
+              تتبع بصمتك الكربونية وساهم في مستقبل أخضر
+            </Text>
+          </View>
+
+          {/* بطاقة البصمة الرئيسية */}
+          <View className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-3xl p-6 md:p-8 gap-4 border border-primary/20">
             <View className="gap-2">
-              <Text className="text-sm text-muted font-medium">البصمة الكربونية اليومية</Text>
+              <Text className="text-sm md:text-base text-muted">البصمة الكربونية اليومية</Text>
               <View className="flex-row items-baseline gap-2">
                 <Text
-                  className="text-5xl font-bold text-primary"
+                  className="text-5xl md:text-6xl font-bold"
                   style={{ color: colors.primary }}
                 >
-                  {statistics?.averageDailyFootprint.toFixed(1) || "0"}
+                  {todayFootprint.toFixed(2)}
                 </Text>
-                <Text className="text-lg text-muted">kg CO2e</Text>
+                <Text className="text-lg md:text-xl text-muted">kg CO2e</Text>
               </View>
             </View>
 
-            {/* مؤشر التقدم */}
-            <View className="gap-2">
+            {/* شريط التقدم الأسبوعي */}
+            <View className="gap-2 pt-4 border-t border-primary/20">
               <View className="flex-row justify-between items-center">
-                <Text className="text-xs text-muted">التقدم الأسبوعي</Text>
-                <Text className="text-xs font-semibold text-foreground">
+                <Text className="text-sm text-muted">التقدم الأسبوعي</Text>
+                <Text className="text-sm font-bold text-foreground">
                   {statistics?.weeklyFootprint.toFixed(1) || "0"} kg
                 </Text>
               </View>
-              <View className="h-2 bg-surface rounded-full overflow-hidden">
+              <View className="h-3 bg-primary/20 rounded-full overflow-hidden">
                 <View
                   className="h-full bg-primary rounded-full"
                   style={{
-                    width: `${Math.min(
-                      ((statistics?.weeklyFootprint || 0) / 100) * 100,
-                      100
-                    )}%`,
+                    width: `${Math.min((statistics?.weeklyFootprint || 0) / 100, 1) * 100}%`,
                     backgroundColor: colors.primary,
                   }}
                 />
               </View>
             </View>
           </View>
-        </View>
 
-        {/* الأنشطة السريعة */}
-        <View className="px-6 py-8 gap-6">
-          <View className="gap-3">
-            <Text className="text-lg font-bold text-foreground">سجل نشاطاً جديداً</Text>
-            <View className="flex-row flex-wrap gap-3">
-              {activityCategories.map((category) => (
+          {/* شبكة الإحصائيات السريعة */}
+          <View className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <View className="bg-surface rounded-2xl p-4 border border-border gap-2">
+              <Text className="text-xs text-muted">المتوسط اليومي</Text>
+              <Text className="text-2xl font-bold text-foreground">
+                {statistics?.averageDailyFootprint.toFixed(2) || "0"}
+              </Text>
+              <Text className="text-xs text-muted">kg CO2e</Text>
+            </View>
+            <View className="bg-surface rounded-2xl p-4 border border-border gap-2">
+              <Text className="text-xs text-muted">هذا الأسبوع</Text>
+              <Text className="text-2xl font-bold text-foreground">
+                {statistics?.weeklyFootprint.toFixed(1) || "0"}
+              </Text>
+              <Text className="text-xs text-muted">kg CO2e</Text>
+            </View>
+            <View className="bg-surface rounded-2xl p-4 border border-border gap-2">
+              <Text className="text-xs text-muted">هذا الشهر</Text>
+              <Text className="text-2xl font-bold text-foreground">
+                {statistics?.monthlyFootprint.toFixed(1) || "0"}
+              </Text>
+              <Text className="text-xs text-muted">kg CO2e</Text>
+            </View>
+            <View className="bg-surface rounded-2xl p-4 border border-border gap-2">
+              <Text className="text-xs text-muted">إجمالي الأنشطة</Text>
+              <Text className="text-2xl font-bold text-foreground">
+                {statistics?.activitiesCount || 0}
+              </Text>
+              <Text className="text-xs text-muted">نشاط مسجل</Text>
+            </View>
+          </View>
+
+          {/* قسم تسجيل النشاط */}
+          <View className="gap-4">
+            <View className="gap-2">
+              <Text className="text-2xl font-bold text-foreground">📝 سجل نشاطاً جديداً</Text>
+              <Text className="text-sm text-muted">اختر نوع النشاط لتسجيل البصمة الكربونية</Text>
+            </View>
+
+            <View className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {ACTIVITY_CATEGORIES.map((category) => (
                 <Pressable
                   key={category.id}
                   onPress={() => handleActivityPress(category.id)}
                   style={({ pressed }) => [
                     {
                       opacity: pressed ? 0.7 : 1,
-                      transform: [{ scale: pressed ? 0.95 : 1 }],
+                      transform: [{ scale: pressed ? 0.98 : 1 }],
                     },
                   ]}
-                  className="flex-1 min-w-[calc(50%-6px)] bg-surface rounded-2xl p-4 gap-2 items-center justify-center"
+                  className="bg-surface rounded-2xl p-6 items-center gap-3 border border-border hover:border-primary transition-colors"
                 >
-                  <Text className="text-3xl">{category.icon}</Text>
-                  <Text className="text-sm font-semibold text-foreground text-center">
+                  <Text className="text-4xl">{category.icon}</Text>
+                  <Text className="text-lg font-bold text-foreground text-center">
                     {category.label}
                   </Text>
                 </Pressable>
@@ -144,95 +169,68 @@ export default function HomeScreen() {
             </View>
           </View>
 
+          {/* التحدي اليومي */}
+          <View className="bg-warning/10 rounded-2xl p-6 gap-4 border border-warning/20">
+            <View className="flex-row items-center gap-2">
+              <Text className="text-2xl">🎯</Text>
+              <Text className="text-xl font-bold text-foreground">التحدي اليومي</Text>
+            </View>
+            <Text className="text-base text-foreground">
+              استخدم وسائل النقل العام 3 مرات اليوم واحفظ 5 كيلوغرامات من CO2
+            </Text>
+            <View className="gap-2">
+              <View className="flex-row justify-between items-center">
+                <Text className="text-sm text-muted">التقدم</Text>
+                <Text className="text-sm font-bold text-foreground">1/3</Text>
+              </View>
+              <View className="h-2 bg-warning/20 rounded-full overflow-hidden">
+                <View className="h-full bg-warning rounded-full" style={{ width: "33%" }} />
+              </View>
+            </View>
+            <Text className="text-xs text-muted">توفير محتمل: 2.5 kg CO2e</Text>
+          </View>
+
+          {/* نصيحة اليوم */}
+          <View className="bg-success/10 rounded-2xl p-6 gap-3 border border-success/20">
+            <View className="flex-row items-center gap-2">
+              <Text className="text-2xl">💡</Text>
+              <Text className="text-lg font-bold text-foreground">نصيحة اليوم</Text>
+            </View>
+            <Text className="text-base text-foreground leading-relaxed">
+              استخدم المشي أو الدراجة الهوائية بدلاً من السيارة لمسافات قصيرة. هذا يقلل البصمة
+              الكربونية بنسبة 90% مقارنة بالسيارة العادية.
+            </Text>
+          </View>
+
           {/* أنشطة اليوم */}
           {todayActivities.length > 0 && (
-            <View className="gap-3">
-              <Text className="text-lg font-bold text-foreground">أنشطة اليوم</Text>
-              <View className="gap-2">
-                {todayActivities.slice(0, 3).map((activity) => (
+            <View className="gap-4">
+              <Text className="text-2xl font-bold text-foreground">📊 أنشطة اليوم</Text>
+              <View className="gap-3">
+                {todayActivities.map((activity) => (
                   <View
                     key={activity.id}
-                    className="bg-surface rounded-xl p-4 flex-row justify-between items-center"
+                    className="bg-surface rounded-xl p-4 border border-border flex-row justify-between items-center"
                   >
-                    <View className="gap-1 flex-1">
-                      <Text className="font-semibold text-foreground capitalize">
+                    <View className="gap-1">
+                      <Text className="font-semibold text-foreground">
                         {activity.category}
                       </Text>
-                      <Text className="text-xs text-muted">{activity.description}</Text>
+                      <Text className="text-xs text-muted">
+                        {new Date(activity.date).toLocaleTimeString("ar-SA")}
+                      </Text>
                     </View>
-                    <Text className="font-bold text-primary" style={{ color: colors.primary }}>
-                      {activity.carbonFootprint.toFixed(2)} kg
-                    </Text>
+                    <View className="items-end gap-1">
+                      <Text className="font-bold text-primary" style={{ color: colors.primary }}>
+                        {activity.carbonFootprint.toFixed(2)} kg
+                      </Text>
+                      <Text className="text-xs text-muted">{activity.value} {activity.unit}</Text>
+                    </View>
                   </View>
                 ))}
               </View>
             </View>
           )}
-
-          {/* التحدي اليومي */}
-          <Pressable
-            onPress={handleChallengePress}
-            style={({ pressed }) => [
-              {
-                opacity: pressed ? 0.9 : 1,
-                transform: [{ scale: pressed ? 0.97 : 1 }],
-              },
-            ]}
-            className="bg-gradient-to-r from-primary/20 to-secondary/20 rounded-2xl p-6 gap-3 border border-primary/30"
-          >
-            <View className="gap-2">
-              <Text className="text-lg font-bold text-foreground">🎯 التحدي اليومي</Text>
-              <Text className="text-sm text-muted leading-relaxed">
-                استخدم وسائل النقل العام 3 مرات اليوم واحفظ 5 كيلوغرام من CO2
-              </Text>
-            </View>
-            <View className="flex-row justify-between items-center pt-2">
-              <View className="flex-row gap-2">
-                <View className="w-8 h-8 rounded-full bg-primary/20 items-center justify-center">
-                  <Text className="text-xs font-bold text-primary">1/3</Text>
-                </View>
-              </View>
-              <Text className="text-xs font-semibold text-primary">قبول التحدي →</Text>
-            </View>
-          </Pressable>
-
-          {/* نصيحة اليوم */}
-          <View className="bg-surface rounded-2xl p-6 gap-3 border border-border">
-            <View className="gap-2">
-              <Text className="text-lg font-bold text-foreground">💡 {dailyTip.title}</Text>
-              <Text className="text-sm text-muted leading-relaxed">{dailyTip.description}</Text>
-            </View>
-            <View className="flex-row items-center gap-2 pt-2 border-t border-border">
-              <Text className="text-xs text-success font-semibold">
-                توفير محتمل: {dailyTip.savings} kg CO2e
-              </Text>
-            </View>
-          </View>
-
-          {/* إحصائيات سريعة */}
-          <View className="gap-3">
-            <Text className="text-lg font-bold text-foreground">الإحصائيات</Text>
-            <View className="flex-row gap-3">
-              <View className="flex-1 bg-surface rounded-xl p-4 gap-2">
-                <Text className="text-xs text-muted">إجمالي الأنشطة</Text>
-                <Text className="text-2xl font-bold text-foreground">
-                  {statistics?.activitiesCount || 0}
-                </Text>
-              </View>
-              <View className="flex-1 bg-surface rounded-xl p-4 gap-2">
-                <Text className="text-xs text-muted">التحديات المكتملة</Text>
-                <Text className="text-2xl font-bold text-foreground">
-                  {statistics?.challengesCompleted || 0}
-                </Text>
-              </View>
-              <View className="flex-1 bg-surface rounded-xl p-4 gap-2">
-                <Text className="text-xs text-muted">الشارات</Text>
-                <Text className="text-2xl font-bold text-foreground">
-                  {statistics?.badgesUnlocked || 0}
-                </Text>
-              </View>
-            </View>
-          </View>
         </View>
       </ScrollView>
     </ScreenContainer>
